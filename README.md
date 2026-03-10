@@ -17,7 +17,7 @@ cargo add solaredge-modbus
 Or add to your Cargo.toml:
 ```toml
 [dependencies]
-solaredge-modbus = "0.1.0"
+solaredge-modbus = "0.1.1"
 ```
 
 ## SolarEdge modbus client for Rust
