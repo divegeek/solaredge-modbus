@@ -3,6 +3,7 @@ use std::time::Duration;
 use solaredge_modbus::{TcpClient, discover_with_mdns};
 
 #[tokio::test]
+#[ignore] // requires a real inverter on the local network
 async fn it_works() -> Result<(), Box<dyn std::error::Error>> {
 	let hosts = discover_with_mdns(Duration::from_secs(3), 1).await?;
 	let host_info = hosts.into_iter().next().ok_or("No host found")?;

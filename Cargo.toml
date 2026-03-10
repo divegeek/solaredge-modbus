@@ -2,7 +2,7 @@
 name = "solaredge-modbus"
 version = "0.1.1"
 edition = "2024"
-rust-version = "1.85.0"
+rust-version = "1.87.0"
 description = "SolarEdge modbus client"
 keywords = ["solaredge", "energy", "solar", "automation", "home"]
 categories = ["api-bindings", "network-programming", "asynchronous", "hardware-support"]
