@@ -1,0 +1,29 @@
+[package]
+name = "solaredge-modbus"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85.0"
+description = "SolarEdge modbus client"
+keywords = ["solaredge", "energy", "solar", "automation", "home"]
+categories = ["api-bindings", "network-programming", "asynchronous", "hardware-support"]
+authors = ["Pro <twisted.fall@gmail.com>"]
+license = "LGPL-3.0"
+documentation = "https://docs.rs/solaredge-modbus"
+repository = "https://github.com/twistedfall/solaredge-modbus"
+exclude = ["/.github", "/tools", ".gitignore", "release.toml", "rustfmt.toml"]
+
+[badges]
+maintenance = { status = "passively-maintained" }
+
+[features]
+discover = ["dep:mdns-sd", "dep:async-timer"]
+
+[dependencies]
+log = "0.4"
+modbus = "1"
+
+async-timer = { version = "0.7", optional = true }
+mdns-sd = { version = "0.18", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "macros"] }
