@@ -14,10 +14,20 @@ impl TcpClient {
 				tcp::Config {
 					tcp_port: port,
 					modbus_uid: device_id,
+					tcp_read_timeout: Some(crate::slot::READ_TIMEOUT),
 					..Default::default()
 				},
 			)?,
 		})
+	}
+
+	/// Consume this client and return the underlying transport.
+	///
+	/// Use this to pass the existing TCP session to [`Slot::open_on_transport`], avoiding the
+	/// close/reopen cycle that causes SolarEdge inverters to fail due to their single-session
+	/// limitation.
+	pub fn into_transport(self) -> tcp::Transport {
+		self.client
 	}
 
 	#[cfg(feature = "discover")]
@@ -474,7 +484,7 @@ impl RegisterResponse for Vec<u16> {
 	}
 }
 
-trait Scaled {
+pub(crate) trait Scaled {
 	fn scaled(self, scale: i16) -> f64;
 }
 
