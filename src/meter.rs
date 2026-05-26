@@ -12,16 +12,6 @@ use crate::slot::{READ_TIMEOUT, SlotNumber};
 pub struct MeterClient {
 	client: tcp::Transport,
 	base: u16,
-	sf_current: Option<i16>,
-	sf_voltage: Option<i16>,
-	sf_freq: Option<i16>,
-	sf_power: Option<i16>,
-	sf_va: Option<i16>,
-	sf_var: Option<i16>,
-	sf_pf: Option<i16>,
-	sf_energy_w: Option<i16>,
-	sf_energy_va: Option<i16>,
-	sf_energy_var: Option<i16>,
 }
 
 impl MeterClient {
@@ -383,101 +373,30 @@ impl MeterClient {
 	///
 	/// Returns `(power, voltage)` where power is negative when exporting to the grid.
 	pub fn grid_power_and_voltage(&mut self) -> Result<(f64, f64), Error> {
-		match (self.sf_voltage, self.sf_power) {
-			(Some(voltage_sf), Some(power_sf)) => {
-				// SFs cached: read only M_AC_Voltage_AB through M_AC_Power (offsets 79–85).
-				let regs = self
-					.client
-					.read_holding_registers(self.base + MeterReg::M_AC_Voltage_AB.offset(), 7)?;
-				Ok(((regs[6] as i16).scaled(power_sf), (regs[0] as i16).scaled(voltage_sf)))
-			}
-			_ => {
-				// SFs not yet cached: extend the read through M_AC_Power_SF (offsets 79–89).
-				let regs = self
-					.client
-					.read_holding_registers(self.base + MeterReg::M_AC_Voltage_AB.offset(), 11)?;
-				let voltage_sf = regs[3] as i16;
-				let power_sf = regs[10] as i16;
-				self.sf_voltage.get_or_insert(voltage_sf);
-				self.sf_power.get_or_insert(power_sf);
-				Ok(((regs[6] as i16).scaled(power_sf), (regs[0] as i16).scaled(voltage_sf)))
-			}
-		}
+		// Read M_AC_Voltage_AB through M_AC_Power_SF contiguously (offsets 79–89, 11 registers).
+		let regs = self
+			.client
+			.read_holding_registers(self.base + MeterReg::M_AC_Voltage_AB.offset(), 11)?;
+		let voltage_sf = regs[3] as i16; // M_AC_Voltage_SF at offset 82
+		let power_sf = regs[10] as i16; // M_AC_Power_SF at offset 89
+		Ok(((regs[6] as i16).scaled(power_sf), (regs[0] as i16).scaled(voltage_sf)))
 	}
 
 	pub(crate) fn from_transport(client: tcp::Transport, base: u16) -> Self {
-		MeterClient {
-			client,
-			base,
-			sf_current: None,
-			sf_voltage: None,
-			sf_freq: None,
-			sf_power: None,
-			sf_va: None,
-			sf_var: None,
-			sf_pf: None,
-			sf_energy_w: None,
-			sf_energy_va: None,
-			sf_energy_var: None,
-		}
+		MeterClient { client, base }
 	}
 
-	/// Read an scale a register value
 	fn read_register_with_scale(&mut self, reg: MeterReg, sf_reg: MeterReg) -> modbus::Result<(Vec<u16>, i16)> {
-		let sf = self.read_sf(sf_reg)?;
-		Ok((self.read(reg)?, sf))
+		crate::tcp_client::read_scaled(
+			&mut self.client,
+			self.base + reg.offset(),
+			reg.size(),
+			self.base + sf_reg.offset(),
+		)
 	}
 
-	/// Read a register scale factor, getting it from the cache if possible, and caching it if the
-	/// read has to be done.
-	fn read_sf(&mut self, sf_reg: MeterReg) -> modbus::Result<i16> {
-		if let Some(sf) = self.read_sf_cache(sf_reg) {
-			return Ok(sf);
-		}
-
-		let sf = self.client.read_holding_registers(self.base + sf_reg.offset(), 1)?[0] as i16;
-		self.write_sf_cache(sf_reg, sf);
-
-		Ok(sf)
-	}
-
-	/// Read a register value.
 	fn read(&mut self, reg: MeterReg) -> modbus::Result<Vec<u16>> {
 		self.client.read_holding_registers(self.base + reg.offset(), reg.size())
-	}
-
-	/// Read a scale factor from the cache, if present.
-	fn read_sf_cache(&self, sf_reg: MeterReg) -> Option<i16> {
-		match sf_reg {
-			MeterReg::M_AC_Current_SF => self.sf_current,
-			MeterReg::M_AC_Voltage_SF => self.sf_voltage,
-			MeterReg::M_AC_Freq_SF => self.sf_freq,
-			MeterReg::M_AC_Power_SF => self.sf_power,
-			MeterReg::M_AC_VA_SF => self.sf_va,
-			MeterReg::M_AC_VAR_SF => self.sf_var,
-			MeterReg::M_AC_PF_SF => self.sf_pf,
-			MeterReg::M_Energy_W_SF => self.sf_energy_w,
-			MeterReg::M_Energy_VA_SF => self.sf_energy_va,
-			MeterReg::M_Energy_VAR_SF => self.sf_energy_var,
-			_ => unreachable!(),
-		}
-	}
-
-	/// Cache a scale factor.
-	fn write_sf_cache(&mut self, sf_reg: MeterReg, sf: i16) {
-		match sf_reg {
-			MeterReg::M_AC_Current_SF => self.sf_current = Some(sf),
-			MeterReg::M_AC_Voltage_SF => self.sf_voltage = Some(sf),
-			MeterReg::M_AC_Freq_SF => self.sf_freq = Some(sf),
-			MeterReg::M_AC_Power_SF => self.sf_power = Some(sf),
-			MeterReg::M_AC_VA_SF => self.sf_va = Some(sf),
-			MeterReg::M_AC_VAR_SF => self.sf_var = Some(sf),
-			MeterReg::M_AC_PF_SF => self.sf_pf = Some(sf),
-			MeterReg::M_Energy_W_SF => self.sf_energy_w = Some(sf),
-			MeterReg::M_Energy_VA_SF => self.sf_energy_va = Some(sf),
-			MeterReg::M_Energy_VAR_SF => self.sf_energy_var = Some(sf),
-			_ => unreachable!(),
-		}
 	}
 }
 

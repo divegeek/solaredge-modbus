@@ -12,16 +12,6 @@ use crate::slot::{READ_TIMEOUT, SlotNumber};
 pub struct DerAcClient {
 	client: tcp::Transport,
 	base: u16,
-	sf_w: Option<i16>,
-	sf_a: Option<i16>,
-	sf_v: Option<i16>,
-	sf_hz: Option<i16>,
-	sf_pf: Option<i16>,
-	sf_va: Option<i16>,
-	sf_var: Option<i16>,
-	sf_tot_wh: Option<i16>,
-	sf_tot_varh: Option<i16>,
-	sf_tmp: Option<i16>,
 }
 
 impl DerAcClient {
@@ -368,24 +358,7 @@ impl DerAcClient {
 	}
 
 	pub(crate) fn from_transport(client: tcp::Transport, base: u16) -> Self {
-		DerAcClient {
-			client,
-			base,
-			sf_w: None,
-			sf_a: None,
-			sf_v: None,
-			sf_hz: None,
-			sf_pf: None,
-			sf_va: None,
-			sf_var: None,
-			sf_tot_wh: None,
-			sf_tot_varh: None,
-			sf_tmp: None,
-		}
-	}
-
-	fn read(&mut self, reg: DerAcReg) -> modbus::Result<Vec<u16>> {
-		self.client.read_holding_registers(self.base + reg.offset(), reg.size())
+		DerAcClient { client, base }
 	}
 
 	fn read_register_with_scale(
@@ -393,49 +366,16 @@ impl DerAcClient {
 		reg: DerAcReg,
 		sf_reg: DerAcReg,
 	) -> modbus::Result<(Vec<u16>, i16)> {
-		let sf = self.read_sf(sf_reg)?;
-		Ok((self.read(reg)?, sf))
+		crate::tcp_client::read_scaled(
+			&mut self.client,
+			self.base + reg.offset(),
+			reg.size(),
+			self.base + sf_reg.offset(),
+		)
 	}
 
-	fn read_sf_cache(&self, sf_reg: DerAcReg) -> Option<i16> {
-		match sf_reg {
-			DerAcReg::W_SF => self.sf_w,
-			DerAcReg::A_SF => self.sf_a,
-			DerAcReg::V_SF => self.sf_v,
-			DerAcReg::Hz_SF => self.sf_hz,
-			DerAcReg::PF_SF => self.sf_pf,
-			DerAcReg::VA_SF => self.sf_va,
-			DerAcReg::Var_SF => self.sf_var,
-			DerAcReg::TotWh_SF => self.sf_tot_wh,
-			DerAcReg::TotVarh_SF => self.sf_tot_varh,
-			DerAcReg::Tmp_SF => self.sf_tmp,
-			_ => unreachable!(),
-		}
-	}
-
-	fn write_sf_cache(&mut self, sf_reg: DerAcReg, sf: i16) {
-		match sf_reg {
-			DerAcReg::W_SF => self.sf_w = Some(sf),
-			DerAcReg::A_SF => self.sf_a = Some(sf),
-			DerAcReg::V_SF => self.sf_v = Some(sf),
-			DerAcReg::Hz_SF => self.sf_hz = Some(sf),
-			DerAcReg::PF_SF => self.sf_pf = Some(sf),
-			DerAcReg::VA_SF => self.sf_va = Some(sf),
-			DerAcReg::Var_SF => self.sf_var = Some(sf),
-			DerAcReg::TotWh_SF => self.sf_tot_wh = Some(sf),
-			DerAcReg::TotVarh_SF => self.sf_tot_varh = Some(sf),
-			DerAcReg::Tmp_SF => self.sf_tmp = Some(sf),
-			_ => unreachable!(),
-		}
-	}
-
-	fn read_sf(&mut self, sf_reg: DerAcReg) -> modbus::Result<i16> {
-		if let Some(sf) = self.read_sf_cache(sf_reg) {
-			return Ok(sf);
-		}
-		let sf = self.client.read_holding_registers(self.base + sf_reg.offset(), 1)?[0] as i16;
-		self.write_sf_cache(sf_reg, sf);
-		Ok(sf)
+	fn read(&mut self, reg: DerAcReg) -> modbus::Result<Vec<u16>> {
+		self.client.read_holding_registers(self.base + reg.offset(), reg.size())
 	}
 }
 

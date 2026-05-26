@@ -227,21 +227,30 @@ impl TcpClient {
 		register: R,
 		scale_register: RS,
 	) -> modbus::Result<(Vec<u16>, i16)> {
-		if register.address() + register.size() == scale_register.address() {
-			let mut combined = self
-				.client
-				.read_holding_registers(register.address(), register.size() + scale_register.size())?;
-			let scale = combined.pop().unwrap();
-			Ok((combined, scale as i16))
-		} else if scale_register.address() + scale_register.size() == register.address() {
-			let mut combined = self
-				.client
-				.read_holding_registers(scale_register.address(), scale_register.size() + register.size())?;
-			let scale = combined.remove(0);
-			Ok((combined, scale as i16))
-		} else {
-			Ok((self.read_register(register)?, self.read_register(scale_register)?.i16()))
-		}
+		read_scaled(&mut self.client, register.address(), register.size(), scale_register.address())
+	}
+}
+
+/// Read a data register and its scale-factor register, combining them into a single Modbus
+/// request when the two registers are contiguous in the address space.
+pub(crate) fn read_scaled(
+	client: &mut tcp::Transport,
+	reg_addr: u16,
+	reg_size: u16,
+	sf_addr: u16,
+) -> modbus::Result<(Vec<u16>, i16)> {
+	if reg_addr + reg_size == sf_addr {
+		let mut combined = client.read_holding_registers(reg_addr, reg_size + 1)?;
+		let sf = combined.pop().unwrap() as i16;
+		Ok((combined, sf))
+	} else if sf_addr + 1 == reg_addr {
+		let mut combined = client.read_holding_registers(sf_addr, 1 + reg_size)?;
+		let sf = combined.remove(0) as i16;
+		Ok((combined, sf))
+	} else {
+		let data = client.read_holding_registers(reg_addr, reg_size)?;
+		let sf = client.read_holding_registers(sf_addr, 1)?[0] as i16;
+		Ok((data, sf))
 	}
 }
 
