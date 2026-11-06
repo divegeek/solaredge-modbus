@@ -8,7 +8,8 @@ use crate::meter::MeterClient;
 
 pub(crate) const SLOT1_BASE: u16 = 40121;
 pub(crate) const SLOT_SPACING: u16 = 174;
-pub(crate) const READ_TIMEOUT: Duration = Duration::from_secs(3);
+/// Applied to connect, read, and write on the Modbus TCP socket so no call can block forever.
+pub(crate) const TCP_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// Each SolarEdge inverter has three meter slots, each of which may be empty.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -89,7 +90,9 @@ impl Slot {
 			tcp::Config {
 				tcp_port: port,
 				modbus_uid: device_id,
-				tcp_read_timeout: Some(READ_TIMEOUT),
+				tcp_connect_timeout: Some(TCP_TIMEOUT),
+				tcp_read_timeout: Some(TCP_TIMEOUT),
+				tcp_write_timeout: Some(TCP_TIMEOUT),
 				..Default::default()
 			},
 		)?;

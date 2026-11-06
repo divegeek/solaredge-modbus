@@ -1,7 +1,7 @@
 use modbus::{Client as _, tcp};
 
 use crate::error::Error;
-use crate::slot::{READ_TIMEOUT, SlotNumber};
+use crate::slot::{SlotNumber, TCP_TIMEOUT};
 
 /// Client for a SunSpec AC meter slot in a SolarEdge inverter (models 201–204).
 ///
@@ -24,7 +24,9 @@ impl MeterClient {
 				tcp::Config {
 					tcp_port: port,
 					modbus_uid: device_id,
-					tcp_read_timeout: Some(READ_TIMEOUT),
+					tcp_connect_timeout: Some(TCP_TIMEOUT),
+					tcp_read_timeout: Some(TCP_TIMEOUT),
+					tcp_write_timeout: Some(TCP_TIMEOUT),
 					..Default::default()
 				},
 			)?,

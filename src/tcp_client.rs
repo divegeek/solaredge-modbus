@@ -14,7 +14,9 @@ impl TcpClient {
 				tcp::Config {
 					tcp_port: port,
 					modbus_uid: device_id,
-					tcp_read_timeout: Some(crate::slot::READ_TIMEOUT),
+					tcp_connect_timeout: Some(crate::slot::TCP_TIMEOUT),
+					tcp_read_timeout: Some(crate::slot::TCP_TIMEOUT),
+					tcp_write_timeout: Some(crate::slot::TCP_TIMEOUT),
 					..Default::default()
 				},
 			)?,
